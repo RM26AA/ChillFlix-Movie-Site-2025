@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CHILL - Results</title>
+  <style>
+    :root{
+      --bg:#141414; --panel:#1c1c1c; --accent:#e50914; --muted:#9a9a9a;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:Inter, Arial, Helvetica, sans-serif; background:var(--bg); color:#fff; }
+
+    header{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:10px 20px; background:#000; position:sticky; top:0; z-index:20;
+      border-bottom:1px solid rgba(255,255,255,0.02);
+    }
+    .logo{ height:40px; cursor:pointer }
+    .title{ font-size:18px; font-weight:700; }
+    .back{ color:#fff; text-decoration:none; font-weight:600; margin-left:12px; }
+
+    /* Grid results */
+    main{ padding:18px 20px 80px; }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap:16px;
+      justify-items:center;
+    }
+    .tile{
+      background:var(--panel);
+      border-radius:8px;
+      overflow:hidden;
+      cursor:pointer;
+      transition:transform .15s ease, box-shadow .15s ease;
+      width:150px;
+    }
+    .tile:hover{
+      transform:scale(1.07);
+      box-shadow:0 0 15px rgba(0,0,0,0.4);
+    }
+    .tile img{
+      width:100%;
+      height:225px; /* portrait shape */
+      object-fit:cover;
+      display:block;
+    }
+    .tile h3{
+      font-size:13px;
+      margin:6px;
+      color:#eee;
+      text-align:center;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    /* responsive */
+    @media (max-width:1400px){ .grid{ grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); } }
+    @media (max-width:900px){ .grid{ grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); } .tile img{ height:180px } }
+    @media (max-width:600px){ .grid{ grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); } .tile img{ height:165px } }
+
+    .loading-more{ text-align:center; color:var(--muted); padding:12px 0 }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display:flex; align-items:center;">
+      <img src="CHILL1.png" class="logo" id="logoHome" alt="CHILL">
+      <a href="index.html" class="back">Home</a>
+    </div>
+    <div class="title" id="pageTitle">Results</div>
+    <div style="width:48px"></div>
+  </header>
+
+  <main>
+    <div id="grid" class="grid"></div>
+    <div id="loadingMore" class="loading-more">Scroll to load more...</div>
+  </main>
+
+  <script>
+    const API_KEY = '279d55798ba24d36ad0f22f82d9dac49';
+    const grid = document.getElementById('grid');
+    const pageTitle = document.getElementById('pageTitle');
+    const loadingMore = document.getElementById('loadingMore');
+    let page = 1;
+    let lastFetchUrl = null;
+    let fetching = false;
+    let finish = false;
+
+    // parse query params
+    function params(){
+      const p = {};
+      location.search.slice(1).split('&').forEach(pair=>{
+        if(!pair) return;
+        const [k,v] = pair.split('=');
+        p[decodeURIComponent(k)] = decodeURIComponent(v || '');
+      });
+      return p;
+    }
+
+    const qs = params();
+
+    // Determine type and build initial URL
+    function buildUrl({ type, q }) {
+      type = (type || '').toLowerCase();
+      if(q){ // search
+        pageTitle.textContent = `Search results for "${q}"`;
+        return `https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(q)}&language=en-US&page=1&include_adult=false`;
+      }
+      if(type === 'series' || type === 'tv'){
+        pageTitle.textContent = 'Series';
+        return `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=en-US&sort_by=popularity.desc&page=1`;
+      }
+      if(type === 'movie'){
+        pageTitle.textContent = 'Films';
+        return `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=en-US&sort_by=popularity.desc&page=1`;
+      }
+      if(type === 'anime'){
+        pageTitle.textContent = 'Anime';
+        return `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=en-US&with_original_language=ja&with_genres=16&page=1`;
+      }
+      if(type === 'newpopular' || type === 'new' || type === 'popular'){
+        pageTitle.textContent = 'New & Popular';
+        return `https://api.themoviedb.org/3/trending/all/week?api_key=${API_KEY}&language=en-US&page=1`;
+      }
+      pageTitle.textContent = 'Popular';
+      return `https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}&language=en-US&page=1`;
+    }
+
+    lastFetchUrl = buildUrl({ type: qs.type, q: qs.q });
+
+    async function fetchAndAppend(){
+      if(fetching || finish) return;
+      fetching = true;
+      loadingMore.textContent = 'Loading...';
+      try {
+        const url = new URL(lastFetchUrl);
+        url.searchParams.set('page', page);
+        const res = await fetch(url.href);
+        const json = await res.json();
+        const results = json.results || [];
+        if(results.length === 0) { finish = true; loadingMore.textContent = 'No more results'; }
+        results.forEach(item => {
+          const isMovieLike = item.media_type ? (item.media_type === 'movie' || item.media_type === 'tv') : true;
+          if(!isMovieLike) return;
+
+          const title = item.title || item.name || item.original_name || item.original_title || 'Untitled';
+          const poster = item.poster_path
+            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+            : (item.backdrop_path ? `https://image.tmdb.org/t/p/w500${item.backdrop_path}` : 'https://via.placeholder.com/500x750?text=No+Image');
+
+          const el = document.createElement('div');
+          el.className = 'tile';
+          el.innerHTML = `<img src="${poster}" loading="lazy" alt="${title}"><h3>${title}</h3>`;
+
+          // ✅ Clicking a card goes to detail.html
+          const media_type = item.media_type || (qs.type === 'series' ? 'tv' : 'movie');
+          el.addEventListener('click', () => {
+            window.location.href = `detail.html?id=${item.id}&type=${media_type}`;
+          });
+
+          grid.appendChild(el);
+        });
+        page++;
+        loadingMore.textContent = 'Scroll to load more...';
+      } catch(e){
+        console.error('results fetch err', e);
+        loadingMore.textContent = 'Fetch error';
+      }
+      fetching = false;
+    }
+
+    // infinite scroll
+    window.addEventListener('scroll', ()=>{
+      if(window.innerHeight + window.scrollY >= document.body.offsetHeight - 900){
+        fetchAndAppend();
+      }
+    });
+
+    // init
+    fetchAndAppend();
+
+    // logo goes home
+    document.getElementById('logoHome').addEventListener('click', ()=> window.location.href='index.html');
+  </script>
+</body>
+</html>

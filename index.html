@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CHILL - Home</title>
+  <style>
+    :root{
+      --bg:#141414;
+      --panel:#1c1c1c;
+      --accent:#e50914;
+      --muted:#9a9a9a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, Arial, Helvetica, sans-serif;
+      background:var(--bg);
+      color:#fff;
+    }
+
+    /* Loading screen */
+    #loading-screen{
+      position:fixed; inset:0;
+      background:#000;
+      display:flex; align-items:center; justify-content:center;
+      z-index:9999; transition:opacity .45s ease;
+    }
+    #loading-screen.hidden{opacity:0; pointer-events:none; display:block}
+    #loading-screen img{ width:180px; animation:pulse 1.5s infinite; }
+    @keyframes pulse{0%{opacity:.3; transform:scale(.95)}50%{opacity:1; transform:scale(1)}100%{opacity:.3; transform:scale(.95)}}
+
+    /* Header / nav */
+    header{
+      position:sticky; top:0; z-index:50;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:16px; padding:10px 28px; background:#000;
+      border-bottom: 1px solid rgba(255,255,255,0.02);
+    }
+    .left{
+      display:flex; align-items:center; gap:20px;
+    }
+    .logo{height:42px; cursor:pointer}
+    nav.nav-links{display:flex; gap:18px; align-items:center;}
+    nav.nav-links a{
+      color:#fff; text-decoration:none; font-weight:600; font-size:15px;
+      opacity:.95;
+    }
+    nav.nav-links a:hover{ color:var(--accent) }
+
+    /* search */
+    .right{ display:flex; align-items:center; gap:14px; }
+    .search-button{ background:transparent; border:0; padding:4px; cursor:pointer; }
+    .search-button img{ height:32px; width:32px; display:block; opacity:.95 }
+    .search-input{
+      width:0; opacity:0; transition:all .3s ease; height:34px; padding:0 10px; border-radius:6px;
+      border:1px solid rgba(255,255,255,.08); background:#121212; color:#fff;
+      font-size:14px; outline:none;
+    }
+    .search-active .search-input{ width:260px; opacity:1 }
+
+    /* Main content */
+    main{ padding:18px 28px 80px; }
+
+    .category{
+      margin-bottom:24px;
+    }
+    .category-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .category-header h2{ margin:0; font-size:18px; font-weight:700; }
+    .row-wrap{ position:relative; }
+    .row{
+      display:flex; gap:10px; overflow-x:auto; padding:6px 2px; scroll-behavior:smooth;
+    }
+    .row::-webkit-scrollbar{ height:8px }
+    .row::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.06); border-radius:8px }
+
+    .movie{
+      min-width:150px; max-width:150px; background:var(--panel); border-radius:8px; overflow:hidden;
+      flex:0 0 150px; cursor:pointer; transition:transform .15s ease;
+    }
+    .movie:hover{ transform:scale(1.05) }
+    .movie img{ width:100%; height:225px; object-fit:cover; display:block }
+    .movie h3{ font-size:13px; margin:8px; text-align:center; color:#eee; white-space:nowrap; text-overflow:ellipsis; overflow:hidden }
+
+    /* arrows */
+    .arrow-btn{
+      position:absolute; top:40%; transform:translateY(-50%); background:rgba(0,0,0,0.5);
+      border:0; width:36px; height:56px; display:flex; align-items:center; justify-content:center;
+      cursor:pointer; border-radius:4px;
+    }
+    .arrow-btn.left{ left:4px }
+    .arrow-btn.right{ right:4px }
+    .arrow-btn svg{ width:18px; height:18px; fill:#fff; opacity:.9 }
+
+    /* Random picks grid */
+    .random-grid{
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+      gap:15px; margin-top:18px;
+    }
+
+    /* Footer */
+    footer{ text-align:center; color:var(--muted); padding:28px 0 120px; }
+
+    /* responsive tweaks */
+    @media (max-width:900px){
+      .movie{ min-width:120px; max-width:120px }
+      .movie img{ height:180px }
+      .search-active .search-input{ width:160px }
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading -->
+  <div id="loading-screen">
+    <img src="CHILL1.png" alt="CHILL">
+  </div>
+
+  <header>
+    <div class="left">
+      <img src="CHILL1.png" alt="CHILL" class="logo" id="logoBtn">
+      <nav class="nav-links">
+        <a href="index.html" id="homeLink">Home</a>
+        <a href="results.html?type=series" id="seriesLink">Series</a>
+        <a href="results.html?type=movie" id="filmsLink">Films</a>
+        <a href="results.html?type=anime" id="animeLink">Anime</a>
+        <a href="results.html?type=newpopular" id="npLink">New &amp; Popular</a>
+      </nav>
+    </div>
+
+    <div class="right" id="searchContainer">
+      <button class="search-button" id="searchBtn" title="Search">
+        <img src="search.png" alt="Search">
+      </button>
+      <input id="searchInput" class="search-input" type="text" placeholder="Search movies and series...">
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <footer>
+    Powered by The Movie Database (TMDB)
+  </footer>
+
+  <script>
+    const API_KEY = '279d55798ba24d36ad0f22f82d9dac49';
+    const mainEl = document.getElementById('main');
+    const loading = document.getElementById('loading-screen');
+
+    /* CONFIG: categories */
+    const categories = [
+      { key:'bingeworthy', title:'Bingeworthy Series', type:'tv', url:`https://api.themoviedb.org/3/trending/tv/week?api_key=${API_KEY}&language=en-US&page=1` },
+      { key:'action', title:'Action', type:'movie', url:`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&with_genres=28&language=en-US&page=1` },
+      { key:'comedy', title:'Comedy', type:'movie', url:`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&with_genres=35&language=en-US&page=1` },
+      { key:'love', title:'Love', type:'movie', url:`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&with_genres=10749&language=en-US&page=1` },
+      { key:'asian', title:'Asian', type:'movie', url:`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&with_original_language=ko&language=en-US&page=1` },
+      { key:'documentaries', title:'Documentaries', type:'movie', url:`https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&with_genres=99&language=en-US&page=1` },
+      { key:'gangster', title:'Gangster', type:'movie', url:`https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=gangster&language=en-US&page=1` },
+    ];
+
+    function buildRows(){
+      categories.forEach(cat => {
+        const section = document.createElement('section');
+        section.className = 'category';
+        section.innerHTML = `
+          <div class="category-header">
+            <h2>${cat.title}</h2>
+          </div>
+          <div class="row-wrap">
+            <button class="arrow-btn left" data-target="${cat.key}">
+              <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
+            </button>
+            <div class="row" id="row-${cat.key}"></div>
+            <button class="arrow-btn right" data-target="${cat.key}">
+              <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+            </button>
+          </div>
+        `;
+        mainEl.appendChild(section);
+      });
+    }
+
+    async function fetchToRow(url, rowId, type){
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        const arr = json.results || [];
+        const row = document.getElementById(rowId);
+        arr.forEach(item => {
+          const title = item.title || item.name || 'Untitled';
+          const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Image';
+          const el = document.createElement('div');
+          el.className = 'movie';
+          el.innerHTML = `<img src="${poster}" loading="lazy" alt="${title}"><h3>${title}</h3>`;
+          // ➤ open detail page
+          el.addEventListener('click', () => {
+            window.location.href = `detail.html?id=${item.id}&type=${type}`;
+          });
+          row.appendChild(el);
+        });
+      } catch(e) {
+        console.error('fetchToRow error', e);
+      }
+    }
+
+    // --- RANDOM PICKS ---
+    const randomSection = document.createElement('section');
+    randomSection.className = 'category';
+    randomSection.innerHTML = `<div class="category-header"><h2>Random Picks</h2></div><div id="random-grid" class="random-grid"></div>`;
+    let randomPage = 1;
+    let loadingRandom = false;
+
+    async function loadRandomPicks(){
+      if(loadingRandom) return;
+      loadingRandom = true;
+      const url = `https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}&language=en-US&page=${randomPage}`;
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        const arr = json.results || [];
+        const grid = document.getElementById('random-grid');
+        arr.forEach(item => {
+          const title = item.title || item.name || '';
+          const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Image';
+          const el = document.createElement('div');
+          el.className = 'movie';
+          el.innerHTML = `<img src="${poster}" loading="lazy" alt="${title}"><h3>${title}</h3>`;
+          el.addEventListener('click', () => {
+            window.location.href = `detail.html?id=${item.id}&type=movie`;
+          });
+          grid.appendChild(el);
+        });
+        randomPage++;
+      } catch(e) {
+        console.error('random picks load error', e);
+      }
+      loadingRandom = false;
+    }
+
+    window.addEventListener('scroll', async () => {
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 800;
+      if(nearBottom && !loadingRandom) await loadRandomPicks();
+    });
+
+    // --- ARROWS ---
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.arrow-btn');
+      if(!btn) return;
+      const row = document.getElementById(`row-${btn.dataset.target}`);
+      if(!row) return;
+      const dir = btn.classList.contains('left') ? -1 : 1;
+      row.scrollBy({left:dir*520,behavior:'smooth'});
+    });
+
+    // --- SEARCH ---
+    const searchContainer = document.getElementById('searchContainer');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchInput = document.getElementById('searchInput');
+    searchBtn.addEventListener('click', ()=>{
+      searchContainer.classList.toggle('search-active');
+      if(searchContainer.classList.contains('search-active')) searchInput.focus();
+      else searchInput.value='';
+    });
+    searchInput.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter'){
+        const q=searchInput.value.trim();
+        if(q) window.location.href=`results.html?q=${encodeURIComponent(q)}`;
+      }
+    });
+
+    // --- INIT ---
+    async function init(){
+      buildRows();
+      for(const cat of categories){
+        await fetchToRow(cat.url, `row-${cat.key}`, cat.type);
+      }
+      mainEl.appendChild(randomSection);
+      await loadRandomPicks();
+      setTimeout(()=>{
+        loading.classList.add('hidden');
+        setTimeout(()=>loading.style.display='none',450);
+      },600);
+    }
+
+    // Logo/Home
+    document.getElementById('logoBtn').addEventListener('click',()=>window.location.href='index.html');
+    document.getElementById('homeLink').addEventListener('click',()=>window.location.href='index.html');
+
+    init();
+  </script>
+</body>
+</html>
+
+
