@@ -1,6 +1,6 @@
-# 🎬 CHILL - Netflix-Themed Movie Browser
+# 🎬 CHILLFLIX - Netflix-Themed Movie Browser
 
-**CHILL** is a modern, Netflix-inspired movie and TV show browsing web app built using **HTML**, **CSS**, and **JavaScript**.  
+**CHILLFLIX** is a modern, Netflix-inspired movie and TV show browsing web app built using **HTML**, **CSS**, and **JavaScript**.  
 It uses the [TMDB (The Movie Database) API](https://www.themoviedb.org/documentation/api) to fetch and display live movie data, including popular titles, genres, and detailed information pages.
 
 ---
@@ -81,7 +81,7 @@ All movie and TV data is provided by [TMDB](https://www.themoviedb.org/), and th
 
 ## 👨‍💻 Author
 
-**CHILL** was created by *[R.Maunick]*
+**CHILLFLIX** was created by *[R.Maunick]*
 Feel free to fork, modify, and improve!
 
 
